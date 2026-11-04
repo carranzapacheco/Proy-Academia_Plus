@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión · PLUSTWENTY | Gestión de Matrículas y Pensiones</title>
+  <meta name="description"
+    content="Portal PLUSTWENTY: sistema de gestión de matrículas, pensiones y pagos de la academia preuniversitaria. Acceso para administradores, estudiantes y apoderados.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { navy: { DEFAULT: '#1F2937', 900: '#111827', 950: '#0B1220' }, brand: '#2563EB', ok: '#16A34A', bad: '#DC2626' },
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="login-page">
+  <main class="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
+
+    <!-- Panel de marca -->
+    <section class="login-hero hidden lg:flex" aria-label="Presentación PLUSTWENTY">
+      <div class="relative z-10 flex flex-col justify-between h-full w-full max-w-xl mx-auto py-12 px-10">
+        <div>
+          <span data-logo="104" class="inline-block"></span>
+          <p class="text-slate-500 text-xs uppercase tracking-[.25em] mt-4">Academia Preuniversitaria</p>
+        </div>
+
+        <div>
+          <h2 class="text-slate-900 text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight">
+            Tu ingreso a la universidad,<br><span class="text-blue-600">sin pendientes.</span>
+          </h2>
+          <div class="grid grid-cols-3 gap-3 mt-10">
+            <div class="login-stat"><i class="fa-solid fa-shield-halved"></i>
+              <p>Pagos verificados</p>
+            </div>
+            <div class="login-stat"><i class="fa-solid fa-bolt"></i>
+              <p>Reportes al instante</p>
+            </div>
+            <div class="login-stat"><i class="fa-solid fa-bell"></i>
+              <p>Alertas de vencimiento</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass p-5 flex items-start gap-4">
+          <div class="w-11 h-11 rounded-xl bg-slate-100 grid place-items-center text-slate-500 shrink-0"><i
+              class="fa-solid fa-quote-left"></i></div>
+          <div>
+            <p class="text-slate-700 text-sm leading-relaxed">"Ahora sé exactamente cuánto debo y cuándo vence cada
+              cuota. Reporto mi Yape y en horas ya está validado."</p>
+            <p class="text-slate-500 text-xs mt-2 font-semibold">Camila F. · Ingresante UNT 2026-I</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Formulario -->
+    <section class="flex items-center justify-center p-5 sm:p-10 relative">
+      <div class="w-full max-w-md login-card-enter">
+        <div class="flex lg:hidden flex-col items-center gap-2 mb-8">
+          <span data-logo="54"></span>
+          <p class="text-xs text-slate-500 uppercase tracking-widest">Academia Preuniversitaria</p>
+        </div>
+
+        <div class="card login-card">
+          <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Bienvenido de vuelta</h1>
+          <p class="text-slate-500 text-sm mt-1">Ingresa tu correo o usuario para acceder al sistema.</p>
+
+          <form id="login-form" class="mt-6 space-y-4" novalidate>
+            <label class="field">
+              <span class="label">Correo electrónico</span>
+              <div class="input-icon"><i class="fa-solid fa-envelope"></i>
+                <input id="login-user" name="username" type="email" class="input" autocomplete="username"
+                  placeholder="correo@ejemplo.com" maxlength="254" required>
+              </div>
+            </label>
+            <label class="field">
+              <span class="label flex justify-between">Contraseña <a href="#" id="forgot-link"
+                  class="text-brand font-semibold text-xs hover:underline">¿Olvidaste tu contraseña?</a></span>
+              <div class="input-icon"><i class="fa-solid fa-lock"></i>
+                <input id="login-pass" name="password" type="password" class="input pr-11"
+                  autocomplete="current-password" placeholder="••••••••" required>
+                <button type="button" id="toggle-pass" class="pass-eye" aria-label="Mostrar contraseña"><i
+                    class="fa-solid fa-eye"></i></button>
+              </div>
+            </label>
+
+            <div id="login-error" class="alert alert-danger hidden" role="alert"><i
+                class="fa-solid fa-circle-exclamation ai"></i><span></span></div>
+
+            <button type="submit" id="login-submit" class="btn btn-primary btn-block btn-lg">
+              <span>Ingresar al sistema</span><i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </form>
+        </div>
+
+        <div class="flex items-center justify-between mt-6 text-xs text-slate-400">
+          <button type="button" id="reset-demo" class="hover:text-red-500 font-semibold"><i
+              class="fa-solid fa-rotate-left"></i> Restablecer datos demo</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      const { auth, UI, LOGO_SVG } = PT;
+
+      // Si ya hay sesión activa, redirigir al panel correspondiente
+      const current = auth.current();
+      if (current) { location.replace(auth.home(current)); return; }
+
+      document.querySelectorAll('[data-logo]').forEach((el, i) => el.innerHTML = LOGO_SVG(+el.dataset.logo, 'lg' + i));
+
+      const form = document.getElementById('login-form');
+      const errBox = document.getElementById('login-error');
+      const btn = document.getElementById('login-submit');
+      const showError = msg => { errBox.querySelector('span').textContent = msg; errBox.classList.remove('hidden'); errBox.classList.remove('shake'); void errBox.offsetWidth; errBox.classList.add('shake'); };
+
+      document.getElementById('toggle-pass').addEventListener('click', e => {
+        const inp = document.getElementById('login-pass');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        e.currentTarget.innerHTML = `<i class="fa-solid fa-eye${show ? '-slash' : ''}"></i>`;
+      });
+
+      async function doLogin(username, password) {
+        if (btn.disabled) return;
+        errBox.classList.add('hidden');
+        if (!PT.validators.email(username)) return showError('Ingresa el correo electrónico de tu cuenta.');
+        if (!password) return showError('Ingresa tu contraseña.');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Validando credenciales…</span>';
+        const r = await auth.login(username, password);
+        if (!r.ok) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>Ingresar al sistema</span><i class="fa-solid fa-arrow-right"></i>';
+          return showError(r.error);
+        }
+        const rolTexto = r.user.rol === 'admin' ? 'Administrador' : 'Estudiante';
+        UI.toast(`¡Bienvenido, ${r.user.nombre.split(' ')[0]}! (${rolTexto})`);
+        setTimeout(() => location.href = auth.home(r.user), 450);
+      }
+
+      form.addEventListener('submit', e => {
+        e.preventDefault();
+        doLogin(form.username.value.trim(), form.password.value);
+      });
+
+      document.getElementById('forgot-link').addEventListener('click', e => {
+        e.preventDefault();
+        UI.alert('Recuperar contraseña', '', 'info', 'Por seguridad, el restablecimiento lo realiza la administración de la academia.<br><br><b>Secretaría:</b> (01) 480-2020<br><b>Correo:</b> admin@plustwenty.edu.pe');
+      });
+
+      document.getElementById('reset-demo').addEventListener('click', async () => {
+        const ok = await UI.confirm({ title: '¿Restablecer datos demo?', text: 'Se eliminarán todos los cambios realizados y se cargarán los datos semilla originales.', icon: 'warning', confirmText: 'Sí, restablecer', danger: true });
+        if (ok) { PT.resetDemo(); UI.toast('Datos de demostración restablecidos'); }
+      });
+    })();
+  </script>
+</body>
+
+</html>

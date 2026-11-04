@@ -1,0 +1,15 @@
+# Copia este archivo a  config/db.properties  y completa tus datos.
+# config/db.properties está en .gitignore: NUNCA se sube al repositorio.
+
+# --- Desarrollo local (MySQL en tu PC) ---
+# Normalmente solo necesitas la contraseña de tu MySQL local (usuario root):
+DB_PASSWORD=tu_password_local_de_mysql
+# Si tu URL o usuario difieren del valor por defecto, descomenta y ajusta:
+# DB_URL=jdbc:mysql://localhost:3306/plustwenty4?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Lima&characterEncoding=UTF-8
+# DB_USER=root
+
+# --- Producción (Aiven) ---
+# En Render NO se usa este archivo: se definen como variables de entorno del servicio.
+# DB_URL=jdbc:mysql://TU_HOST.aivencloud.com:PUERTO/plustwenty?sslMode=REQUIRE
+# DB_USER=avnadmin
+# DB_PASSWORD=TU_PASSWORD_DE_AIVEN
