@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=PLUSTWENTY/index.html">
+  <title>PLUSTWENTY · Redireccionando...</title>
+  <script>
+    window.location.replace("PLUSTWENTY/index.html");
+  </script>
+</head>
+<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#F3F6FB;color:#1E3A8A">
+  <div style="text-align:center">
+    <h2>Ingresando a PLUSTWENTY...</h2>
+    <p>Si no es redirigido automáticamente, <a href="PLUSTWENTY/index.html" style="color:#2563EB;font-weight:bold">haga clic aquí</a>.</p>
+  </div>
+  
+<script>
+    // Despierta el backend de Vercel sin bloquear la interfaz de login.
+    window.addEventListener('DOMContentLoaded', function () {
+        fetch('/api/health', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store'
+        }).catch(function () {
+            // El warm-up nunca debe impedir usar el login.
+        });
+    });
+</script>
+
+</body>
+</html>

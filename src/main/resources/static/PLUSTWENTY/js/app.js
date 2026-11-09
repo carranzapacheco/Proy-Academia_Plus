@@ -371,8 +371,10 @@
        location.replace('index.html');
     },
     silentLogout() {
-      try { http.call('POST', '/api/auth/logout'); } catch (e) { /* sin conexión */ }
       ME = null;
+
+      return http.callAsync('POST', '/api/auth/logout')
+        .catch(() => ({ ok: false }));
     },
     home: u => (u.rol === 'admin' ? 'admin.html' : 'usuario.html'),
     require(rol) {

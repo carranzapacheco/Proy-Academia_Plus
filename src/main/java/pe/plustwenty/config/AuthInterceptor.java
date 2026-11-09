@@ -26,6 +26,9 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
+        if ("/api/health".equals(request.getRequestURI())) {
+            return true;
+        }
         if ("OPTIONS".equals(request.getMethod()) || PUBLICAS.contains(request.getRequestURI())) {
             return true;
         }
