@@ -15,8 +15,7 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
 ENV SPRING_PROFILES_ACTIVE=vercel
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
-
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+TieredCompilation -XX:TieredStopAtLevel=1"
 # Vercel inyecta PORT. Spring lo consume mediante server.port=${PORT:8084}.
 EXPOSE 8080
 CMD ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
