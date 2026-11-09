@@ -120,9 +120,8 @@
     (function () {
       const { auth, UI, LOGO_SVG } = PT;
 
-      // Si ya hay sesión activa, redirigir al panel correspondiente
-      const current = auth.current();
-      if (current) { location.replace(auth.home(current)); return; }
+    
+   auth.silentLogout();
 
       document.querySelectorAll('[data-logo]').forEach((el, i) => el.innerHTML = LOGO_SVG(+el.dataset.logo, 'lg' + i));
 

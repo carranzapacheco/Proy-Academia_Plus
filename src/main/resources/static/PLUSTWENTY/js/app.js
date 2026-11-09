@@ -121,7 +121,7 @@
       return r.data;
     }
   };
-
+ window.addEventListener('pageshow', e => { if (e.persisted) location.reload(); });
   const COLECCIONES = ['programas', 'ciclos', 'estudiantes', 'users', 'matriculas', 'pensiones', 'pagos', 'notificaciones', 'auditoria'];
   const cache = {};
   let ME = null; // usuario autenticado (sesión del servidor)
@@ -361,7 +361,11 @@
     logout() {
       try { http.call('POST', '/api/auth/logout'); } catch (e) { /* sin conexión: se cierra igual en el cliente */ }
       ME = null;
-      location.href = 'index.html';
+       location.replace('index.html');
+    },
+    silentLogout() {
+      try { http.call('POST', '/api/auth/logout'); } catch (e) { /* sin conexión */ }
+      ME = null;
     },
     home: u => (u.rol === 'admin' ? 'admin.html' : 'usuario.html'),
     require(rol) {
