@@ -41,6 +41,23 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<resources>
+
+			<!-- Recursos normales de Spring Boot -->
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+
+			<!--
+				El frontend es la única fuente de los archivos estáticos.
+				Maven lo copia dentro del JAR de Spring Boot.
+			-->
+			<resource>
+				<directory>frontend</directory>
+				<targetPath>static</targetPath>
+			</resource>
+
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
