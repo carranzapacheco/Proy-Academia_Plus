@@ -155,7 +155,7 @@
         }
         const rolTexto = r.user.rol === 'admin' ? 'Administrador' : 'Estudiante';
         UI.toast(`¡Bienvenido, ${r.user.nombre.split(' ')[0]}! (${rolTexto})`);
-        setTimeout(() => location.href = auth.home(r.user), 450);
+        setTimeout(() => location.href = auth.home(r.user));
       }
 
       form.addEventListener('submit', e => {
