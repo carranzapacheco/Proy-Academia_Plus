@@ -119,7 +119,7 @@
       // Si se llega a esta pantalla con sesión activa (por ejemplo, con el botón "atrás"),
       // la sesión se cierra: para volver a entrar al sistema hay que iniciar sesión otra vez.
       // (en esta pantalla app.js no carga la sesión, por eso se cierra siempre, sin preguntar)
-      auth.silentLogout();
+      const backendReady = auth.silentLogout();
 
       document.querySelectorAll('[data-logo]').forEach((el, i) => el.innerHTML = LOGO_SVG(+el.dataset.logo, 'lg' + i));
 
@@ -142,6 +142,11 @@
         if (!password) return showError('Ingresa tu contraseña.');
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Validando credenciales…</span>';
+
+        // Si el backend estaba frío, esperamos a que termine
+        // el cierre de sesión inicial antes de crear una sesión nueva.
+        await backendReady;
+
         const r = await auth.login(username, password);
         if (!r.ok) {
           btn.disabled = false;
