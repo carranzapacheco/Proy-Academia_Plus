@@ -14,8 +14,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     public static final String ATTR_ME = "me";
 
-    private static final Set<String> PUBLICAS = Set.of(
-            "/api/auth/login", "/api/auth/logout", "/api/bootstrap", "/api/demo/reset");
+       private static final Set<String> PUBLICAS = Set.of(
+            "/api/auth/login", "/api/auth/logout", "/api/auth/reset-password", "/api/bootstrap", "/api/demo/reset");
 
     private final SesionService sesiones;
 

@@ -4,6 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -29,7 +33,12 @@ public class AuthController {
 
     public record CambioClave(String actual, String nueva) {
     }
+public record ResetClave(String email, String dni, String fechaNacimiento, String nueva) {
+    }
 
+    private static final int MAX_FALLOS_RESET = 5;
+    private static final long VENTANA_RESET_MS = 60L * 60 * 1000;
+    private final ConcurrentHashMap<String, Deque<Long>> fallosReset = new ConcurrentHashMap<>();
     private final UsuarioRepository usuarios;
     private final EstudianteRepository estudiantes;
     private final PasswordEncoder encoder;
@@ -109,7 +118,65 @@ public class AuthController {
         cuerpo.put("ok", true);
         return ResponseEntity.ok(cuerpo);
     }
+ @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> restablecer(@RequestBody ResetClave req, HttpServletRequest request) {
+        String email = limpio(req.email()).toLowerCase(java.util.Locale.ROOT);
+        String nueva = req.nueva() == null ? "" : req.nueva();
+        if (nueva.length() < 6 || nueva.getBytes(StandardCharsets.UTF_8).length > 72) {
+            return fallo(HttpStatus.BAD_REQUEST, "La nueva contraseña debe tener entre 6 y 72 caracteres.");
+        }
+        String clave = request.getRemoteAddr() + "|" + email;
+        if (bloqueado(clave)) {
+            return fallo(HttpStatus.TOO_MANY_REQUESTS,
+                    "Demasiados intentos fallidos. Espera una hora o comunícate con la administración.");
+        }
 
+        Usuario u = buscar(email);
+        Estudiante e = (u != null && "user".equals(u.rol) && Boolean.TRUE.equals(u.activo) && u.estudianteId != null)
+                ? estudiantes.findById(u.estudianteId).orElse(null) : null;
+        boolean coincide = e != null && !Boolean.FALSE.equals(e.activo)
+                && !limpio(e.dni).isEmpty() && limpio(e.dni).equals(limpio(req.dni()))
+                && !limpio(e.fechaNacimiento).isEmpty() && limpio(e.fechaNacimiento).equals(limpio(req.fechaNacimiento()));
+        if (!coincide) {
+            registrarFallo(clave);
+            return fallo(HttpStatus.BAD_REQUEST, "Los datos ingresados no coinciden con ningún estudiante.");
+        }
+
+        u.password = encoder.encode(nueva);
+        usuarios.save(u);
+        fallosReset.remove(clave);
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("ok", true);
+        return ResponseEntity.ok(cuerpo);
+    }
+
+    private static String limpio(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private boolean bloqueado(String clave) {
+        Deque<Long> q = fallosReset.get(clave);
+        if (q == null) {
+            return false;
+        }
+        long ahora = System.currentTimeMillis();
+        synchronized (q) {
+            while (!q.isEmpty() && ahora - q.peekFirst() > VENTANA_RESET_MS) {
+                q.pollFirst();
+            }
+            return q.size() >= MAX_FALLOS_RESET;
+        }
+    }
+
+    private void registrarFallo(String clave) {
+        if (fallosReset.size() > 10_000) {
+            fallosReset.clear();
+        }
+        Deque<Long> q = fallosReset.computeIfAbsent(clave, k -> new ArrayDeque<>());
+        synchronized (q) {
+            q.addLast(System.currentTimeMillis());
+        }
+    }
     /** El acceso solo admite el correo de una única cuenta. */
     private Usuario buscar(String termino) {
         var coincidencias = usuarios.findByEmailIgnoreCase(termino);

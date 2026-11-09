@@ -104,9 +104,10 @@
             <button type="submit" id="login-submit" class="btn btn-primary btn-block btn-lg">
               <span>Ingresar al sistema</span><i class="fa-solid fa-arrow-right"></i>
             </button>
+            
           </form>
         </div>
-
+      </div>
     </section>
   </main>
 
@@ -115,8 +116,10 @@
     (function () {
       const { auth, UI, LOGO_SVG } = PT;
 
-    
-   auth.silentLogout();
+      // Si se llega a esta pantalla con sesión activa (por ejemplo, con el botón "atrás"),
+      // la sesión se cierra: para volver a entrar al sistema hay que iniciar sesión otra vez.
+      // (en esta pantalla app.js no carga la sesión, por eso se cierra siempre, sin preguntar)
+      auth.silentLogout();
 
       document.querySelectorAll('[data-logo]').forEach((el, i) => el.innerHTML = LOGO_SVG(+el.dataset.logo, 'lg' + i));
 
@@ -155,15 +158,48 @@
         doLogin(form.username.value.trim(), form.password.value);
       });
 
-      document.getElementById('forgot-link').addEventListener('click', e => {
-        e.preventDefault();
-        UI.alert('Recuperar contraseña', '', 'info', 'Por seguridad, el restablecimiento lo realiza la administración de la academia.<br><br><b>Secretaría:</b> (01) 480-2020<br><b>Correo:</b> admin@plustwenty.edu.pe');
-      });
-
-      document.getElementById('reset-demo').addEventListener('click', async () => {
-        const ok = await UI.confirm({ title: '¿Restablecer datos demo?', text: 'Se eliminarán todos los cambios realizados y se cargarán los datos semilla originales.', icon: 'warning', confirmText: 'Sí, restablecer', danger: true });
-        if (ok) { PT.resetDemo(); UI.toast('Datos de demostración restablecidos'); }
-      });
+      // Restablecer contraseña (estudiantes): se verifica con correo, DNI y fecha de nacimiento.
+      async function abrirReset() {
+        const res = await Swal.fire({
+          title: 'Restablecer contraseña',
+          html: `
+            <p style="text-align:left;font-size:.85rem;color:#64748b;margin:0 0 .5rem">Confirma los datos de tu matrícula y elige una nueva contraseña.</p>
+            <input id="rp-email" class="swal2-input" type="email" placeholder="Correo de tu cuenta" autocomplete="username" maxlength="254">
+            <input id="rp-dni" class="swal2-input" type="text" inputmode="numeric" placeholder="DNI del estudiante" maxlength="12">
+            <label for="rp-fecha" style="display:block;text-align:left;font-size:.8rem;color:#64748b;margin:.6rem 2.5em 0">Fecha de nacimiento</label>
+            <input id="rp-fecha" class="swal2-input" type="date" style="margin-top:.25rem">
+            <input id="rp-nueva" class="swal2-input" type="password" placeholder="Nueva contraseña (mínimo 6)" autocomplete="new-password">
+            <input id="rp-nueva2" class="swal2-input" type="password" placeholder="Repite la nueva contraseña" autocomplete="new-password">`,
+          showCancelButton: true,
+          confirmButtonText: 'Restablecer',
+          cancelButtonText: 'Cancelar',
+          focusConfirm: false,
+          showLoaderOnConfirm: true,
+          allowOutsideClick: () => !Swal.isLoading(),
+          preConfirm: async () => {
+            const v = id => document.getElementById(id).value.trim();
+            const email = v('rp-email'), dni = v('rp-dni'), fecha = v('rp-fecha');
+            const nueva = document.getElementById('rp-nueva').value;
+            const nueva2 = document.getElementById('rp-nueva2').value;
+            if (!PT.validators.email(email)) return Swal.showValidationMessage('Ingresa el correo electrónico de tu cuenta.');
+            if (!/^\d{8,12}$/.test(dni)) return Swal.showValidationMessage('Ingresa el DNI del estudiante (solo números).');
+            if (!fecha) return Swal.showValidationMessage('Ingresa la fecha de nacimiento.');
+            if (nueva.length < 6) return Swal.showValidationMessage('La nueva contraseña debe tener al menos 6 caracteres.');
+            if (nueva !== nueva2) return Swal.showValidationMessage('Las contraseñas no coinciden.');
+            const r = await auth.resetPassword({ email, dni, fechaNacimiento: fecha, nueva });
+            if (!r.ok) return Swal.showValidationMessage(r.error);
+            return { email };
+          }
+        });
+        if (res.isConfirmed && res.value) {
+          document.getElementById('login-user').value = res.value.email;
+          document.getElementById('login-pass').value = '';
+          document.getElementById('login-pass').focus();
+          UI.toast('Contraseña actualizada. Ya puedes iniciar sesión.');
+        }
+      }
+      document.getElementById('forgot-link').addEventListener('click', e => { e.preventDefault(); abrirReset(); });
+      document.getElementById('reset-pass-btn').addEventListener('click', abrirReset);
     })();
   </script>
 </body>

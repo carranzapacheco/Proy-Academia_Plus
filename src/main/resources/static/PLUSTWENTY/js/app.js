@@ -357,6 +357,13 @@
       if (r.ok && r.data && r.data.ok) return { ok: true };
       return { ok: false, error: (r.data && (r.data.error || r.data.message)) || 'No se pudo cambiar la contraseña.' };
     },
+     async resetPassword(datos) {
+      let r;
+      try { r = await http.callAsync('POST', '/api/auth/reset-password', datos); }
+      catch (e) { return { ok: false, error: e.message }; }
+      if (r.ok && r.data && r.data.ok) return { ok: true };
+      return { ok: false, error: (r.data && (r.data.error || r.data.message)) || 'No se pudo restablecer la contraseña.' };
+    },
     current() { return ME && ME.activo !== false ? ME : null; },
     logout() {
       try { http.call('POST', '/api/auth/logout'); } catch (e) { /* sin conexión: se cierra igual en el cliente */ }
