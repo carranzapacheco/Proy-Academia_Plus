@@ -103,6 +103,22 @@
           : 'No se pudo conectar con el servidor. Revisa tu conexión e intenta nuevamente.', 0);
       } finally { clearTimeout(timer); }
     },
+
+    async mustAsync(method, url, body, fallback) {
+      const r = await this.callAsync(method, url, body);
+
+      if (!r.ok) {
+        throw new ApiError(
+          (r.data && (r.data.message || r.data.error)) ||
+          fallback ||
+          'No se pudo completar la operación.',
+          r.status
+        );
+      }
+
+      return r.data;
+    },
+
     call(method, url, body) {
       const x = new XMLHttpRequest();
       x.open(method, url, false);
@@ -211,10 +227,65 @@
 
   /* Registro de matrícula: una sola llamada; luego refresca la caché (cambiaron varias colecciones). */
   const registroMatriculas = {
-    registrar(datos) {
-      const saved = http.must('POST', '/api/matriculas/registrar', datos, 'No se pudo registrar la matrícula.');
-      hydrate();
-      return saved;
+
+    async registrar(datos) {
+
+      const result = await http.mustAsync(
+        'POST',
+        '/api/matriculas/registrar',
+        datos,
+        'No se pudo registrar la matrícula.'
+      );
+
+      // ----------------------------------------------------
+      // 1. Actualizar matrícula en caché
+      // ----------------------------------------------------
+
+      const matriculasActuales =
+        db.all('matriculas').filter(
+          x => x.id !== result.matricula.id
+        );
+
+      cache.matriculas = [
+        ...matriculasActuales,
+        result.matricula
+      ];
+
+      // ----------------------------------------------------
+      // 2. Actualizar estudiante en caché
+      // ----------------------------------------------------
+
+      cache.estudiantes =
+        db.all('estudiantes').map(
+          x => x.id === result.estudiante.id
+            ? result.estudiante
+            : x
+        );
+
+      // ----------------------------------------------------
+      // 3. Agregar las pensiones creadas
+      // ----------------------------------------------------
+
+      const nuevasPensiones =
+        Array.isArray(result.pensiones)
+          ? result.pensiones
+          : [];
+
+      const idsNuevos =
+        new Set(
+          nuevasPensiones.map(x => x.id)
+        );
+
+      cache.pensiones =
+        db.all('pensiones')
+          .filter(x => !idsNuevos.has(x.id))
+          .concat(nuevasPensiones);
+
+      // ----------------------------------------------------
+      // 4. Devolver matrícula creada
+      // ----------------------------------------------------
+
+      return result.matricula;
     }
   };
 
@@ -412,6 +483,30 @@
   };
 
   const UI = {
+    async withSubmitLoading(form, text, action) {
+      const btn = form.querySelector('button[type="submit"]');
+
+      if (!btn) {
+        return await action();
+      }
+
+      const original = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = `
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        ${text}
+      `;
+
+      try {
+        return await action();
+      } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.innerHTML = original;
+      }
+    },
     toast(msg, icon = 'success') {
       if (!global.Swal) return alert(msg);
       Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3200, timerProgressBar: true, customClass: { popup: 'pt-toast' } })
@@ -546,6 +641,7 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     },
+    
     printHTML(title, html) {
       const w = window.open('', '_blank', 'width=820,height=900');
       if (!w) return UI.toast('Habilite las ventanas emergentes para imprimir.', 'warning');
@@ -558,6 +654,8 @@
       w.document.close();
     }
   };
+
+  
 
   /* ------------------------------------------------------------------
      Documentos: recibo interno (no tributario)
@@ -712,7 +810,216 @@
   // La pantalla de acceso no necesita descargar las colecciones antes de entrar.
   if (!document.getElementById('login-form')) hydrate();
 
+const estudianteSearch = {
+
+  bind({
+    inputId,
+    hiddenId,
+    resultsId,
+    onSelect = null
+  }) {
+
+    const input =
+      document.getElementById(inputId);
+
+    const hidden =
+      document.getElementById(hiddenId);
+
+    const results =
+      document.getElementById(resultsId);
+
+    if (!input || !hidden || !results) {
+      return;
+    }
+
+    let timer = null;
+    let searchVersion = 0;
+
+    input.addEventListener('input', () => {
+
+      // Si el usuario vuelve a escribir,
+      // anulamos la selección anterior.
+      hidden.value = '';
+
+      clearTimeout(timer);
+
+      const q = input.value.trim();
+
+      searchVersion++;
+
+      const version = searchVersion;
+
+      if (q.length < 2) {
+
+        results.innerHTML = '';
+
+        results.classList.add('hidden');
+
+        return;
+      }
+
+      results.innerHTML = `
+        <div class="p-3 text-sm text-slate-500">
+          <i class="fa-solid fa-circle-notch fa-spin"></i>
+          Buscando estudiante...
+        </div>
+      `;
+
+      results.classList.remove('hidden');
+
+      timer = setTimeout(
+        async () => {
+
+          try {
+
+            const encontrados =
+              await estudiantesApi.buscar(q);
+
+            // Evitar que una búsqueda anterior
+            // reemplace una búsqueda más reciente.
+            if (version !== searchVersion) {
+              return;
+            }
+
+            if (!encontrados.length) {
+
+              results.innerHTML = `
+                <div class="p-3 text-sm text-slate-500">
+                  No se encontraron estudiantes.
+                </div>
+              `;
+
+              return;
+            }
+
+            results.innerHTML =
+              encontrados.map(e => `
+
+                <button
+                  type="button"
+                  class="w-full text-left p-3 border-b hover:bg-slate-50"
+                  data-estudiante="${fmt.esc(e.id)}"
+                  data-label="${fmt.esc(e.dni)} - ${fmt.esc(e.nombres)} ${fmt.esc(e.apellidos)}"
+                >
+
+                  <div class="font-semibold text-slate-800">
+                    ${fmt.esc(e.nombres)}
+                    ${fmt.esc(e.apellidos)}
+                  </div>
+
+                  <div class="text-xs text-slate-500">
+                    DNI: ${fmt.esc(e.dni)}
+                    ${
+                      e.codigo
+                        ? ` · Código: ${fmt.esc(e.codigo)}`
+                        : ''
+                    }
+                  </div>
+
+                </button>
+
+              `).join('');
+
+          } catch (err) {
+
+            console.error(err);
+
+            if (version !== searchVersion) {
+              return;
+            }
+
+            results.innerHTML = `
+              <div class="p-3 text-sm text-red-500">
+                No se pudo realizar la búsqueda.
+              </div>
+            `;
+          }
+
+        },
+        250
+      );
+    });
+
+    results.addEventListener(
+      'click',
+      e => {
+
+        const item =
+          e.target.closest(
+            '[data-estudiante]'
+          );
+
+        if (!item) {
+          return;
+        }
+
+        hidden.value =
+          item.dataset.estudiante;
+
+        input.value =
+          item.dataset.label;
+
+        results.classList.add('hidden');
+
+        if (typeof onSelect === 'function') {
+          onSelect(
+            item.dataset.estudiante
+          );
+        }
+      }
+    );
+
+    // Cerrar resultados si se hace clic fuera.
+    document.addEventListener(
+      'click',
+      e => {
+
+        if (
+          e.target !== input &&
+          !results.contains(e.target)
+        ) {
+          results.classList.add('hidden');
+        }
+      }
+    );
+  }
+};
+
+  const estudiantesApi = {
+
+    async buscar(texto) {
+
+      const q = String(texto || '').trim();
+
+      if (q.length < 2) {
+        return [];
+      }
+
+      const r = await http.callAsync(
+        'GET',
+        `/api/estudiantes/buscar?q=${encodeURIComponent(q)}`
+      );
+
+      if (!r.ok) {
+        throw new ApiError(
+          (
+            r.data &&
+            (r.data.message || r.data.error)
+          ) ||
+          'No se pudo buscar estudiantes.',
+          r.status
+        );
+      }
+
+      return Array.isArray(r.data)
+        ? r.data
+        : [];
+    }
+  };
+
   global.PT = {
+    estudiantesApi,
+estudianteSearch,
     ACADEMIA, MESES, LOGO_SVG,
     db, finance, auth, audit, notify, notifyEstudiante, nextCounter, notificaciones, revisionPagos, registroMatriculas, registroEstudiantes,
     UI, Shell, docs, validators, resetDemo, fakeVoucher,

@@ -8,4 +8,10 @@ import pe.plustwenty.model.Matricula;
 public interface MatriculaRepository extends JpaRepository<Matricula, String> {
 
     List<Matricula> findByEstudianteId(String estudianteId, Sort sort);
+
+    boolean existsByEstudianteIdAndProgramaIdAndCicloId(
+        String estudianteId,
+        String programaId,
+        String cicloId
+    );
 }

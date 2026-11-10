@@ -457,16 +457,43 @@
     modalCrear() {
       const programas = db.all('programas').filter(p => p.activo);
       const ciclos = db.all('ciclos').filter(c => c.activo);
-      const estudiantes = db.all('estudiantes').filter(e => e.activo);
 
       const html = `
         <form id="form-nueva-mat" class="space-y-4">
           <div class="field">
-            <label class="label">Estudiante <span class="text-red-500">*</span></label>
-            <select name="estudianteId" class="select" required>
-              <option value="">Seleccione estudiante...</option>
-              ${estudiantes.map(e => `<option value="${e.id}">${fmt.esc(e.nombres)} ${fmt.esc(e.apellidos)} (DNI: ${e.dni})</option>`).join('')}
-            </select>
+
+            <label class="label">
+              Estudiante
+              <span class="text-red-500">*</span>
+            </label>
+
+            <div class="relative">
+
+              <input
+                type="search"
+                id="mat-estudiante-search"
+                class="input"
+                autocomplete="off"
+                placeholder="Buscar por DNI, nombre o apellido..."
+              >
+
+              <input
+                type="hidden"
+                id="mat-estudiante-id"
+                name="estudianteId"
+              >
+
+              <div
+                id="mat-estudiante-results"
+                class="absolute z-50 left-0 right-0 mt-1 bg-white border rounded-xl shadow-lg hidden max-h-64 overflow-y-auto"
+              ></div>
+
+            </div>
+
+            <span class="hint">
+              Busque por DNI, nombres o apellidos. Para una búsqueda exacta ingrese los 8 dígitos del DNI.
+            </span>
+
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -516,6 +543,12 @@
         size: 'md'
       });
 
+      window.PT.estudianteSearch.bind({
+        inputId: 'mat-estudiante-search',
+        hiddenId: 'mat-estudiante-id',
+        resultsId: 'mat-estudiante-results'
+      });
+
       const selPrg = document.getElementById('mat-modal-prg');
       const selCic = document.getElementById('mat-modal-cic');
       const inMonto = document.getElementById('mat-modal-monto');
@@ -534,31 +567,113 @@
         }
       });
 
-      document.getElementById('form-nueva-mat').addEventListener('submit', e => {
+
+    document.getElementById('form-nueva-mat')
+      .addEventListener('submit', async e => {
+
         e.preventDefault();
-        const fd = new FormData(e.target);
+
+        const form = e.currentTarget;
+        const fd = new FormData(form);
+
         const estId = fd.get('estudianteId');
         const cicloId = fd.get('cicloId');
         const programaId = fd.get('programaId');
         const fecha = fd.get('fecha');
-        const monto = parseFloat(fd.get('montoMatricula')) || 0;
+        const monto =
+          parseFloat(fd.get('montoMatricula')) || 0;
 
-        const ciclo = db.find('ciclos', cicloId);
-        const est = db.find('estudiantes', estId);
-        if (!ciclo || !est) return;
+        const ciclo =
+          db.find('ciclos', cicloId);
 
-        // Una sola llamada: el servidor crea la matrícula + cronograma, actualiza al estudiante,
-        // notifica y audita en una transacción (antes eran ~6 llamadas en fila).
-        const saved = window.PT.registroMatriculas.registrar({
-          estudianteId: estId,
-          cicloId,
-          programaId,
-          fecha,
-          montoMatricula: monto
-        });
-        UI.closeModal();
-        UI.toast(`Matrícula ${saved.codigo} creada exitosamente con sus pensiones`);
-        Shell.refresh();
+        const est =
+          db.find('estudiantes', estId);
+
+        if (!estId) {
+          return UI.toast(
+            'Seleccione un estudiante.',
+            'warning'
+          );
+        }
+
+        if (!programaId) {
+          return UI.toast(
+            'Seleccione un programa académico.',
+            'warning'
+          );
+        }
+
+        if (!cicloId || !ciclo) {
+          return UI.toast(
+            'Seleccione un ciclo académico.',
+            'warning'
+          );
+        }
+
+        if (!est) {
+          return UI.toast(
+            'El estudiante seleccionado no es válido.',
+            'error'
+          );
+        }
+
+        if (!fecha) {
+          return UI.toast(
+            'Ingrese la fecha de matrícula.',
+            'warning'
+          );
+        }
+
+        if (fecha > fmt.today()) {
+          return UI.toast(
+            'La fecha de matrícula no puede ser posterior a hoy.',
+            'warning'
+          );
+        }
+
+        if (monto < 0) {
+          return UI.toast(
+            'El monto de matrícula no puede ser negativo.',
+            'warning'
+          );
+        }
+
+        try {
+
+          const saved =
+            await UI.withSubmitLoading(
+              form,
+              'Procesando matrícula...',
+              () =>
+                window.PT.registroMatriculas.registrar({
+                  estudianteId: estId,
+                  cicloId,
+                  programaId,
+                  fecha,
+                  montoMatricula: monto
+                })
+            );
+
+          UI.closeModal();
+
+          UI.toast(
+            `Matrícula ${saved.codigo} creada exitosamente con sus pensiones`,
+            'success'
+          );
+
+          Shell.refresh();
+
+        } catch (err) {
+
+          console.error(err);
+
+          UI.alert(
+            'No se pudo registrar la matrícula',
+            err.message ||
+              'Ocurrió un error al registrar la matrícula.',
+            'error'
+          );
+        }
       });
     }
   };
