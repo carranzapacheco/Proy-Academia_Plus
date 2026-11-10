@@ -810,203 +810,37 @@
   // La pantalla de acceso no necesita descargar las colecciones antes de entrar.
   if (!document.getElementById('login-form')) hydrate();
 
-const estudianteSearch = {
-
-  bind({
-    inputId,
-    hiddenId,
-    resultsId,
-    onSelect = null
-  }) {
-
-    const input =
-      document.getElementById(inputId);
-
-    const hidden =
-      document.getElementById(hiddenId);
-
-    const results =
-      document.getElementById(resultsId);
-
-    if (!input || !hidden || !results) {
-      return;
-    }
-
-    let timer = null;
-    let searchVersion = 0;
-
-    input.addEventListener('input', () => {
-
-      // Si el usuario vuelve a escribir,
-      // anulamos la selección anterior.
-      hidden.value = '';
-
-      clearTimeout(timer);
-
-      const q = input.value.trim();
-
-      searchVersion++;
-
-      const version = searchVersion;
-
-      if (q.length < 2) {
-
-        results.innerHTML = '';
-
-        results.classList.add('hidden');
-
-        return;
-      }
-
-      results.innerHTML = `
-        <div class="p-3 text-sm text-slate-500">
-          <i class="fa-solid fa-circle-notch fa-spin"></i>
-          Buscando estudiante...
-        </div>
-      `;
-
-      results.classList.remove('hidden');
-
-      timer = setTimeout(
-        async () => {
-
-          try {
-
-            const encontrados =
-              await estudiantesApi.buscar(q);
-
-            // Evitar que una búsqueda anterior
-            // reemplace una búsqueda más reciente.
-            if (version !== searchVersion) {
-              return;
-            }
-
-            if (!encontrados.length) {
-
-              results.innerHTML = `
-                <div class="p-3 text-sm text-slate-500">
-                  No se encontraron estudiantes.
-                </div>
-              `;
-
-              return;
-            }
-
-            results.innerHTML =
-              encontrados.map(e => `
-
-                <button
-                  type="button"
-                  class="w-full text-left p-3 border-b hover:bg-slate-50"
-                  data-estudiante="${fmt.esc(e.id)}"
-                  data-label="${fmt.esc(e.dni)} - ${fmt.esc(e.nombres)} ${fmt.esc(e.apellidos)}"
-                >
-
-                  <div class="font-semibold text-slate-800">
-                    ${fmt.esc(e.nombres)}
-                    ${fmt.esc(e.apellidos)}
-                  </div>
-
-                  <div class="text-xs text-slate-500">
-                    DNI: ${fmt.esc(e.dni)}
-                    ${
-                      e.codigo
-                        ? ` · Código: ${fmt.esc(e.codigo)}`
-                        : ''
-                    }
-                  </div>
-
-                </button>
-
-              `).join('');
-
-          } catch (err) {
-
-            console.error(err);
-
-            if (version !== searchVersion) {
-              return;
-            }
-
-            results.innerHTML = `
-              <div class="p-3 text-sm text-red-500">
-                No se pudo realizar la búsqueda.
-              </div>
-            `;
-          }
-
-        },
-        250
-      );
-    });
-
-    results.addEventListener(
-      'click',
-      e => {
-
-        const item =
-          e.target.closest(
-            '[data-estudiante]'
-          );
-
-        if (!item) {
-          return;
-        }
-
-        hidden.value =
-          item.dataset.estudiante;
-
-        input.value =
-          item.dataset.label;
-
-        results.classList.add('hidden');
-
-        if (typeof onSelect === 'function') {
-          onSelect(
-            item.dataset.estudiante
-          );
-        }
-      }
-    );
-
-    // Cerrar resultados si se hace clic fuera.
-    document.addEventListener(
-      'click',
-      e => {
-
-        if (
-          e.target !== input &&
-          !results.contains(e.target)
-        ) {
-          results.classList.add('hidden');
-        }
-      }
-    );
-  }
-};
-
   const estudiantesApi = {
 
     async buscar(texto) {
 
-      const q = String(texto || '').trim();
+      const q =
+        String(texto || '').trim();
 
       if (q.length < 2) {
         return [];
       }
 
-      const r = await http.callAsync(
-        'GET',
-        `/api/estudiantes/buscar?q=${encodeURIComponent(q)}`
-      );
+      const r =
+        await http.callAsync(
+          'GET',
+          `/api/estudiantes/buscar?q=${encodeURIComponent(q)}`
+        );
 
       if (!r.ok) {
-        throw new ApiError(
+
+        const detalle =
           (
             r.data &&
-            (r.data.message || r.data.error)
+            (
+              r.data.message ||
+              r.data.error
+            )
           ) ||
-          'No se pudo buscar estudiantes.',
+          `Error HTTP ${r.status} al buscar estudiantes.`;
+
+        throw new ApiError(
+          detalle,
           r.status
         );
       }
@@ -1017,12 +851,305 @@ const estudianteSearch = {
     }
   };
 
+
+  const estudianteSearch = {
+
+    bind({
+      inputId,
+      hiddenId,
+      resultsId,
+      onSelect = null
+    }) {
+
+      const input =
+        document.getElementById(inputId);
+
+      const hidden =
+        document.getElementById(hiddenId);
+
+      const results =
+        document.getElementById(resultsId);
+
+      if (
+        !input ||
+        !hidden ||
+        !results
+      ) {
+        return;
+      }
+
+      let timer = null;
+      let searchVersion = 0;
+
+      input.addEventListener(
+        'input',
+        () => {
+
+          /*
+           * Si el usuario vuelve a escribir,
+           * anulamos la selección anterior.
+           */
+          hidden.value = '';
+
+          clearTimeout(timer);
+
+          const q =
+            input.value.trim();
+
+          searchVersion++;
+
+          const version =
+            searchVersion;
+
+          /*
+           * No enviar consultas por una sola letra.
+           */
+          if (q.length < 2) {
+
+            results.innerHTML = '';
+
+            results.classList.add(
+              'hidden'
+            );
+
+            return;
+          }
+
+          /*
+           * Estado visual de búsqueda.
+           */
+          results.innerHTML = `
+            <div class="p-3 text-sm text-slate-500">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              Buscando estudiante...
+            </div>
+          `;
+
+          results.classList.remove(
+            'hidden'
+          );
+
+          /*
+           * Esperamos 250 ms para evitar una llamada
+           * al servidor por cada tecla.
+           */
+          timer = setTimeout(
+            async () => {
+
+              try {
+
+                const encontrados =
+                  await estudiantesApi.buscar(q);
+
+                /*
+                 * Si llegó una respuesta de una búsqueda
+                 * anterior, la ignoramos.
+                 */
+                if (
+                  version !== searchVersion
+                ) {
+                  return;
+                }
+
+                /*
+                 * Sin resultados.
+                 */
+                if (!encontrados.length) {
+
+                  results.innerHTML = `
+                    <div class="p-3 text-sm text-slate-500">
+                      No se encontraron estudiantes.
+                    </div>
+                  `;
+
+                  return;
+                }
+
+                /*
+                 * Mostrar resultados.
+                 *
+                 * IMPORTANTE:
+                 * En app.js utilizamos esc(...)
+                 * directamente.
+                 * NO fmt.esc(...).
+                 */
+                results.innerHTML =
+                  encontrados
+                    .map(e => `
+
+                      <button
+                        type="button"
+                        class="w-full text-left p-3 border-b hover:bg-slate-50"
+                        data-estudiante="${esc(e.id)}"
+                        data-label="${esc(e.dni)} - ${esc(e.nombres)} ${esc(e.apellidos)}"
+                      >
+
+                        <div class="font-semibold text-slate-800">
+                          ${esc(e.nombres)}
+                          ${esc(e.apellidos)}
+                        </div>
+
+                        <div class="text-xs text-slate-500">
+                          DNI: ${esc(e.dni)}
+                          ${
+                            e.codigo
+                              ? ` · Código: ${esc(e.codigo)}`
+                              : ''
+                          }
+                        </div>
+
+                      </button>
+
+                    `)
+                    .join('');
+
+              } catch (err) {
+
+                console.error(
+                  'Error buscando estudiante:',
+                  err
+                );
+
+                if (
+                  version !== searchVersion
+                ) {
+                  return;
+                }
+
+                const mensaje =
+                  err?.message ||
+                  'No se pudo realizar la búsqueda.';
+
+                results.innerHTML = `
+                  <div class="p-3 text-sm text-red-500">
+                    ${esc(mensaje)}
+                  </div>
+                `;
+              }
+
+            },
+            250
+          );
+        }
+      );
+
+
+      /*
+       * Selección de estudiante.
+       */
+      results.addEventListener(
+        'click',
+        e => {
+
+          const item =
+            e.target.closest(
+              '[data-estudiante]'
+            );
+
+          if (!item) {
+            return;
+          }
+
+          /*
+           * Guardar internamente el ID.
+           */
+          hidden.value =
+            item.dataset.estudiante;
+
+          /*
+           * Mostrar DNI + nombre al usuario.
+           */
+          input.value =
+            item.dataset.label;
+
+          results.classList.add(
+            'hidden'
+          );
+
+          if (
+            typeof onSelect ===
+            'function'
+          ) {
+
+            onSelect(
+              item.dataset.estudiante
+            );
+          }
+        }
+      );
+
+
+      /*
+       * Cerrar resultados cuando se hace
+       * clic fuera del buscador.
+       */
+      document.addEventListener(
+        'click',
+        e => {
+
+          if (
+            e.target !== input &&
+            !results.contains(e.target)
+          ) {
+
+            results.classList.add(
+              'hidden'
+            );
+          }
+        }
+      );
+    }
+  };
+
   global.PT = {
     estudiantesApi,
-estudianteSearch,
-    ACADEMIA, MESES, LOGO_SVG,
-    db, finance, auth, audit, notify, notifyEstudiante, nextCounter, notificaciones, revisionPagos, registroMatriculas, registroEstudiantes,
-    UI, Shell, docs, validators, resetDemo, fakeVoucher,
-    fmt: { money, date: fmtDate, dateTime: fmtDateTime, timeAgo, esc, initials, today, nowISO, addDays, daysBetween, round2, sum, parseDate, toISO, pad, norm, debounce, uid, randomPassword, MESES }
+    estudianteSearch,
+
+    ACADEMIA,
+    MESES,
+    LOGO_SVG,
+
+    db,
+    finance,
+    auth,
+    audit,
+    notify,
+    notifyEstudiante,
+    nextCounter,
+    notificaciones,
+    revisionPagos,
+    registroMatriculas,
+    registroEstudiantes,
+
+    UI,
+    Shell,
+    docs,
+    validators,
+    resetDemo,
+    fakeVoucher,
+
+    fmt: {
+      money,
+      date: fmtDate,
+      dateTime: fmtDateTime,
+      timeAgo,
+      esc,
+      initials,
+      today,
+      nowISO,
+      addDays,
+      daysBetween,
+      round2,
+      sum,
+      parseDate,
+      toISO,
+      pad,
+      norm,
+      debounce,
+      uid,
+      randomPassword,
+      MESES
+    }
   };
+
 })(window);

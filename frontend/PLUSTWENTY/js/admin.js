@@ -586,9 +586,6 @@
         const ciclo =
           db.find('ciclos', cicloId);
 
-        const est =
-          db.find('estudiantes', estId);
-
         if (!estId) {
           return UI.toast(
             'Seleccione un estudiante.',
@@ -607,13 +604,6 @@
           return UI.toast(
             'Seleccione un ciclo académico.',
             'warning'
-          );
-        }
-
-        if (!est) {
-          return UI.toast(
-            'El estudiante seleccionado no es válido.',
-            'error'
           );
         }
 
